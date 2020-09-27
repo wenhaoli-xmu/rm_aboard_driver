@@ -55,7 +55,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim) {
 
 /* CANRx接受中断回调函数 */
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef* hcan) {
-	MOTOR_RxUpdate(&M, hcan);
+	GM3510_RxUpdate(&M, hcan);
 } 
 ```
 
