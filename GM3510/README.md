@@ -10,8 +10,8 @@
 ---
 
 ### 1、CAN通讯配置
-![img1]()
-![img2]()
+![img1](https://github.com/RainFromCN/rm_aboard_driver/blob/master/GM3510/img1.png)
+![img2](https://github.com/RainFromCN/rm_aboard_driver/blob/master/GM3510/img2.png)
 
 ---
 
