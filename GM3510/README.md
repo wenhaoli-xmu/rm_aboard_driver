@@ -70,10 +70,10 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef* hcan) {
 **使用样例**
 ```c
 /* 实例化一个3510电机 */
-M = MOTOR_Open(&hcan1, 0x1ff);
+M = GM3510_Open(&hcan1, 0x1ff);
 
 /* 设置PID参数，采样周期，饱和上限 */
-MOTOR_SetPID(&M, 8., 0, 0, 10, 4000);
+GM3510_SetPID(&M, 8., 0, 0, 10, 4000);
 ```
 
 ---
@@ -99,7 +99,7 @@ while (1) {
 while (1) {
     static uint8_t i = 0;
 	
-	MOTOR_Callback(&M);
+	GM3510_Callback(&M);
 	
 	if (systick - tick1 >= 3000) {
 		
