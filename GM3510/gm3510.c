@@ -131,7 +131,7 @@ void GM3510_SetPID(GM3510_TypeDef* M, float kp, float ki, float kd, uint32_t sam
 	M->pid.saturation = output_saturation;
 }
 
-void MOTOR_SetAngle(MOTOR_TypeDef* M, float angle1, float angle2, float angle3) {
+void GM3510_SetAngle(GM3510_TypeDef* M, float angle1, float angle2, float angle3) {
 	
 	static float ratio = 8192 / 360;
 	
