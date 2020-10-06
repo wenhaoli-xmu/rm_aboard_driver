@@ -8,11 +8,11 @@
 
 ## 一、MX配置
 
-![img1]()
+![img1](https://github.com/RainFromCN/rm_aboard_driver/blob/master/DR16/img1.png)
 
-![img2]()
+![img2](https://github.com/RainFromCN/rm_aboard_driver/blob/master/DR16/img2.png)
 
-![img3]()
+![img3](https://github.com/RainFromCN/rm_aboard_driver/blob/master/DR16/img3.png)
 
 
 ---
@@ -104,7 +104,7 @@ while (1) {
 
 ---
 
-## 获取两个按键的值的方法
+## 六、获取两个按键的值的方法
 
 **样例代码**
 ```c
