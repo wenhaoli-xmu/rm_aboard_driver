@@ -85,4 +85,7 @@ void GM3510_SetPID(GM3510_TypeDef* M, float kp, float ki, float kd, uint32_t sam
 /* ʹ��CAN������������ */
 void GM3510_SendCmd(GM3510_TypeDef* M, int16_t motor1, int16_t motor2, int16_t motor3);
 
+/* 设置电机转角 */
+void GM3510_SetAngle(GM3510_TypeDef* M, float angle1, float angle2, float angle3);
+
 #endif
