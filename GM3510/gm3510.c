@@ -1,7 +1,7 @@
 #include "gm3510.h"
 
 
-/* ¿ªÆôÂË²¨Æ÷ */
+/* å¼€å¯æ»¤æ³¢å™¨ */
 static void GM3510_CANFilterEnable(CAN_HandleTypeDef* hcan) {
 	CAN_FilterTypeDef CAN_FilterConfigStructure;
 
@@ -34,7 +34,7 @@ GM3510_TypeDef GM3510_Open(CAN_HandleTypeDef* hcan, uint16_t id_group) {
 	return tmp;
 }
 
-/* ·ÅÔÚCAN½ÓÊÜÖÐ¶ÏÖÐ */
+/* æ”¾åœ¨CANæŽ¥å—ä¸­æ–­ä¸­ */
 void GM3510_RxUpdate(GM3510_TypeDef* M, CAN_HandleTypeDef* hcan) {
 	CAN_RxHeaderTypeDef rx_header;
 	
@@ -42,19 +42,19 @@ void GM3510_RxUpdate(GM3510_TypeDef* M, CAN_HandleTypeDef* hcan) {
 	
 	uint16_t tmp = rx_header.StdId;
 	
-	/* µÚÒ»¸öµç»ú */
+	/* ç¬¬ä¸€ä¸ªç”µæœº */
 	if (tmp == 0x205) {
 		HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rx_header, M->motor1_rxbuffer);
 		M->active_channel[0] = 1;
 	}
 	
-	/* µÚ¶þ¸öµç»ú */
+	/* ç¬¬äºŒä¸ªç”µæœº */
 	else if (tmp == 0x206) {
 		HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rx_header, M->motor2_rxbuffer);
 		M->active_channel[1] = 1;
 	}
 	
-	/* µÚÈý¸öµç»ú */
+	/* ç¬¬ä¸‰ä¸ªç”µæœº */
 	else if (tmp == 0x207) {
 		HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rx_header, M->motor3_rxbuffer);
 		M->active_channel[2] = 1;
@@ -62,18 +62,18 @@ void GM3510_RxUpdate(GM3510_TypeDef* M, CAN_HandleTypeDef* hcan) {
 	
 }
 
-/* ·ÅÔÚ1msÖÜÆÚµÄ¶¨Ê±Æ÷ÖÐ */
+/* æ”¾åœ¨1mså‘¨æœŸçš„å®šæ—¶å™¨ä¸­ */
 void GM3510_Update(GM3510_TypeDef* M) {
 	M->pid.tick += 1;
 }
 
-/* »Øµ÷º¯Êý */
+/* å›žè°ƒå‡½æ•° */
 void GM3510_Callback(GM3510_TypeDef* M) {
 	
 	if (M->pid.tick >= M->pid.sample_period) M->pid.tick = 0;
 	else return ;
 	
-	/* Í¨¹ýCAN»ñÈ¡µç»úµÄÊµ¼ÊÐý×ªÇé¿ö */
+	/* é€šè¿‡CANèŽ·å–ç”µæœºçš„å®žé™…æ—‹è½¬æƒ…å†µ */
 	if (M->active_channel[0] == 1) {
 		M->active_channel[0] = 0;
 		
@@ -95,7 +95,7 @@ void GM3510_Callback(GM3510_TypeDef* M) {
 		M->torque[2] = (int16_t)(M->motor3_rxbuffer[2] << 8 | M->motor3_rxbuffer[3]);
 	}
 	
-	/* µç»úµÄPID¿ØÖÆ */
+	/* ç”µæœºçš„PIDæŽ§åˆ¶ */
 	M->pid.err[0] = M->loc_set[0] - M->angle[0];
 	M->pid.err[1] = M->loc_set[1] - M->angle[1];
 	M->pid.err[2] = M->loc_set[2] - M->angle[2];
@@ -112,7 +112,7 @@ void GM3510_Callback(GM3510_TypeDef* M) {
 	M->pid.prv_err[1] = M->pid.err[1];
 	M->pid.prv_err[2] = M->pid.err[2];
 	
-	/* Êä³öÏÞ·ù */
+	/* è¾“å‡ºé™å¹… */
 	if (M->volt[0] > M->pid.saturation) M->volt[0] = M->pid.saturation;
 	if (M->volt[0] < -M->pid.saturation) M->volt[0] = -M->pid.saturation;
 	if (M->volt[1] > M->pid.saturation) M->volt[1] = M->pid.saturation;
@@ -129,6 +129,15 @@ void GM3510_SetPID(GM3510_TypeDef* M, float kp, float ki, float kd, uint32_t sam
 	M->pid.kd = kd;
 	M->pid.sample_period = sample_period;
 	M->pid.saturation = output_saturation;
+}
+
+void MOTOR_SetAngle(MOTOR_TypeDef* M, float angle1, float angle2, float angle3) {
+	
+	static float ratio = 8192 / 360;
+	
+	M->loc_set[0] = ratio * angle1;
+	M->loc_set[1] = ratio * angle2;
+	M->loc_set[2] = ratio * angle3;
 }
 
 void GM3510_SendCmd(GM3510_TypeDef* M, int16_t motor1, int16_t motor2, int16_t motor3) {
