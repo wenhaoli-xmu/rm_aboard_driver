@@ -1,6 +1,6 @@
 # 大疆DR16接收机驱动
 
-版本：v1.0
+版本：v1.1
 
 团队：哈理工RM电控组
 
@@ -71,7 +71,23 @@ int main() {
 
 ---
 
-## 五、MappingData的使用方法
+## 五、使用校准程序
+`void DR16_Calibration(DR16_TypeDef* D, int16_t* ceiling, int16_t* floor)`
+- `ceiling` 长度为四的int16_t数组首地址，表示遥控器四个通道的最大值
+- `floor` 长度为四的int16_t数组首地址，表示遥控器四个通道的最小值（为正数）
+
+**样例代码**
+```c
+/* 该代码没有进行校准，相当于默认值 */
+int16_t ceiling[4] = {660, 660, 660, 660};
+int16_t floor[4] = {660, 660, 660, 660};
+
+DR16_Calibration(&D, ceiling, floor);
+```
+
+---
+
+## 六、MappingData的使用方法
 
 至此DR16驱动移植完毕，此外DR16还提供了MappingData的方法，来供用户获取四个遥感通道的数据
 
