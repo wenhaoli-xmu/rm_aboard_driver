@@ -25,6 +25,10 @@ typedef struct {
 	int16_t sw1;
 	int16_t sw2;
 	
+	/* 通过程序校对 */
+	int16_t ceil[4];
+	int16_t floor[4];
+	
 } DR16_TypeDef;
 
 /* 实例化一个DR16接收机对象 */
@@ -38,6 +42,9 @@ void DR16_Callback(DR16_TypeDef* D);
 
 /* 放在HAL_UART_RxCpltCallback中 */
 void DR16_RxUpdate(DR16_TypeDef* D, UART_HandleTypeDef* huart);
+
+/* 校准数据 */
+void DR16_Calibration(DR16_TypeDef* D, int16_t* ceiling, int16_t* floor);
 
 /* 将接受的数据映射到区间(0, ceiling)中 */
 void DR16_MappingData(DR16_TypeDef* D, float* data1, float* data2, float* data3, float* data4, float ceiling);
