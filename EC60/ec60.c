@@ -1,4 +1,4 @@
-#include "gm3510.h"
+#include "ec60.h"
 #include "stdlib.h"
 
 
@@ -35,7 +35,7 @@ EC60_TypeDef EC60_Open(CAN_HandleTypeDef* hcan, uint16_t id_group) {
 	return tmp;
 }
 
-/* 放在CAN接受中断中 */
+/* 放在HAL_CAN_RxFifo0MsgPendingCallback中 */
 void EC60_RxUpdate(EC60_TypeDef* M, CAN_HandleTypeDef* hcan) {
 	CAN_RxHeaderTypeDef rx_header;
 	
@@ -77,8 +77,8 @@ static float ABS(float f) {
 	return f > 0 ? f : -f;
 }
 
-/* 回调函数 */
-void EC60_Callback(EC60_TypeDef* M) {
+/* 主任务 */
+void EC60_MainTask(EC60_TypeDef* M) {
 	
 	static int16_t prv_angle[4] = {0, 0, 0, 0};
 	static float vel[3];
