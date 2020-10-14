@@ -85,22 +85,22 @@ EC60_TypeDef EC60_Open(CAN_HandleTypeDef* hcan, uint16_t id_group);
 /* 放在1ms周期定时器中 */
 void EC60_Update(EC60_TypeDef* M);
 
-/* 放在接受中断回调函数中 */
+/* 放在HAL_CAN_RxFifo0MsgPendingCallback中 */
 void EC60_RxUpdate(EC60_TypeDef* M, CAN_HandleTypeDef* hcan);
 
-/* 回调函数 */
-void EC60_Callback(EC60_TypeDef* M);
+/* 主任务 */
+void EC60_MainTask(EC60_TypeDef* M);
 
 /* 设置电机转向 */
 void EC60_SetDir(EC60_TypeDef* M, int16_t dir1, int16_t dir2, int16_t dir3, int16_t dir4);
 
-/* 设置增量式PID参数 */
+/* 设置位置式PID参数 */
 void EC60_CtrlParams(EC60_TypeDef* M, float a1, float a2, float a3, uint32_t sample_period, int16_t output_saturation);
 
 /* 使用CAN向电机发送命令 */
 void EC60_SendCmd(EC60_TypeDef* M, int16_t motor1, int16_t motor2, int16_t motor3, int16_t motor4);
 
-/* 设置电机转角 */
-void EC60_CmdVel(EC60_TypeDef* M, float vel_rpm1, float vel_rpm2, float vel_rpm3, float vel_rpm4);
+/* 设置电机转速 */
+void EC60_CmdVel(EC60_TypeDef* M, float vel_rps1, float vel_rps2, float vel_rps3, float vel_rps4);
 
 #endif
