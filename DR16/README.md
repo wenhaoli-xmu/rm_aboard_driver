@@ -1,6 +1,6 @@
 # 大疆DR16接收机驱动
 
-版本：v1.1
+版本：v2.0
 
 团队：哈理工RM电控组
 
@@ -17,15 +17,17 @@
 
 ---
 
-## 二、创建一个DR16接收机对象
+## 二、创建一个DR16接收机对象并使能
 
 `DR16_TypeDef DR16_Open(UART_HandleTypeDef* dr16_uart);`
+`void DR16_Enable(DR16_TypeDef* D);`
 
 **使用样例**
 ```c
 DR16_TypeDef D;
 
 D = DR16_Open(&huart1);
+DR16_Enable(&D);
 ```
 
 ---
@@ -53,36 +55,18 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart) {
 
 ---
 
-## 四、移植Callback函数
+## 四、移植MainTask函数
 
-`void DR16_Callback(DR16_TypeDef* D);`
+`void DR16_MainTask(DR16_TypeDef* D);`
 - 此函数放在主函数的while(1)中不断运行即可
+- 也可以放在DR16_RxUpdate之后，更推荐放在放在DR16_RxUpdate之后
 
 **样例代码**
 ```c
-int main() {
-    /* ... */
-
-    while (1) {
-        DR16_Callback(&D);
-    }
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart) {
+    DR16_RxUpdate(&D, huart);
+    DR16_MainTask();
 }
-```
-
----
-
-## 五、使用校准程序
-`void DR16_Calibration(DR16_TypeDef* D, int16_t* ceiling, int16_t* floor)`
-- `ceiling` 长度为四的int16_t数组首地址，表示遥控器四个通道的最大值
-- `floor` 长度为四的int16_t数组首地址，表示遥控器四个通道的最小值（为正数）
-
-**样例代码**
-```c
-/* 该代码没有进行校准，相当于默认值 */
-int16_t ceiling[4] = {660, 660, 660, 660};
-int16_t floor[4] = {660, 660, 660, 660};
-
-DR16_Calibration(&D, ceiling, floor);
 ```
 
 ---
@@ -104,8 +88,8 @@ float angle1_smooth, angle2_smooth, angle3_smooth, angle4_smooth;
 
 while (1) {
     /* 获取电机数据与遥控器数据 */
-	MOTOR_Callback(&M);
-	DR16_Callback(&D);
+	MOTOR_Maintask(&M);
+	DR16_Maintask(&D);
 	
 	/* 将遥控器获取的结果映射成0-360之间的数值 */
 	DR16_MappingData(&D, &angle1, &angle2, &angle3, &angle4, 360);
