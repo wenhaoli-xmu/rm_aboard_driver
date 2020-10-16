@@ -35,7 +35,10 @@ EC60_TypeDef M;
 
 M = EC60_Open(&hcan1, 0x200);
 EC60_SetDir(&M, -1, 1, 1, -1);
-EC60_CtrlParams(&M, 4000, 0, 0, 10, 5000);
+EC60_CtrlParams(&M, 4000., 600, 0, 20, 5000);
+
+/* 设置当转速误差≤2的时候启用积分 */
+M.pid.ki_saturation = 2;
 ```
 
 ---
