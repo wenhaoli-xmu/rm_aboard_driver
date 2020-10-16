@@ -27,6 +27,7 @@ EC60_TypeDef EC60_Open(CAN_HandleTypeDef* hcan, uint16_t id_group) {
 	
 	tmp.motor_can = hcan;
 	tmp.motor_id_group = id_group;
+	tmp.pid.ki_saturation = 2;
 	
 	EC60_CANFilterEnable(hcan);
 	HAL_CAN_ActivateNotification(hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
@@ -85,6 +86,7 @@ void EC60_MainTask(EC60_TypeDef* M) {
 	static double ratio;
 	static float minvel;
 	static uint8_t idx;
+	static uint8_t i, j;
 	
 	if (M->pid.tick >= M->pid.sample_period) M->pid.tick = 0;
 	else return ;
@@ -112,13 +114,13 @@ void EC60_MainTask(EC60_TypeDef* M) {
 	
 	ratio = (1000. / M->pid.sample_period) / 8192.;
 	
-	for (int i = 0; i < 4; i ++) {
+	for (i = 0; i < 4; i ++) {
 		vel[0] = (double)(M->angle[i] - prv_angle[i] + 8192) * ratio;
 		vel[1] = (double)(M->angle[i] - prv_angle[i]) * ratio;
 		vel[2] = (double)(M->angle[i] - prv_angle[i] - 8192) * ratio;
 		
 		minvel = 1e6;
-		for (int j = 0; j < 3; j ++) {
+		for (j = 0; j < 3; j ++) {
 			if (ABS(vel[j]) < minvel) {
 				minvel = ABS(vel[j]);
 				idx = j;
@@ -137,16 +139,25 @@ void EC60_MainTask(EC60_TypeDef* M) {
 	M->pid.cur_err[2] = M->vel_set[2] - M->vel[2];
 	M->pid.cur_err[3] = M->vel_set[3] - M->vel[3];
 	
-	for (int i = 0; i < 4; i ++) {
-		if (M->pid.cur_err[i] < (float)0.02 && M->pid.cur_err[i] > (float)-0.02) M->pid.cur_err[i] = 0;
+	for (i = 0; i < 4; i ++) {
+		if (M->pid.cur_err[i] < (float)0.01 && M->pid.cur_err[i] > (float)-0.01) M->pid.cur_err[i] = 0;
+
+		/* 如果进入积分区间 */
+		if (M->pid.cur_err[i] < (float)M->pid.ki_saturation && M->pid.cur_err[i] > (float)-M->pid.ki_saturation) {
+			M->pid.sum_err[i] += M->pid.cur_err[i];
+			M->volt[i] = M->pid.a1 * M->pid.cur_err[i] + M->pid.a2 * M->pid.sum_err[i] + M->pid.a3 * (M->pid.cur_err[i] - M->pid.prv_err[i]);
+		}
+
+		/* 在积分区间之外 */
+		else {
+			M->volt[i] = M->pid.a1 * M->pid.cur_err[i] + M->pid.a3 * (M->pid.cur_err[i] - M->pid.prv_err[i]);
+			M->pid.sum_err[0] = 0;
+			M->pid.sum_err[1] = 0;
+			M->pid.sum_err[2] = 0;
+			M->pid.sum_err[3] = 0;
+		}
 	}
-	
-	M->pid.sum_err[0] += M->pid.cur_err[0];
-	M->pid.sum_err[1] += M->pid.cur_err[1];
-	M->pid.sum_err[2] += M->pid.cur_err[2];
-	M->pid.sum_err[3] += M->pid.cur_err[3];
-	
-	M->volt[0] = M->pid.a1 * M->pid.cur_err[0] + M->pid.a2 * M->pid.sum_err[0] + M->pid.a3 * (M->pid.cur_err[0] - M->pid.prv_err[0]);
+
 	M->volt[1] = M->pid.a1 * M->pid.cur_err[1] + M->pid.a2 * M->pid.sum_err[1] + M->pid.a3 * (M->pid.cur_err[1] - M->pid.prv_err[1]);
 	M->volt[2] = M->pid.a1 * M->pid.cur_err[2] + M->pid.a2 * M->pid.sum_err[2] + M->pid.a3 * (M->pid.cur_err[2] - M->pid.prv_err[2]);
 	M->volt[3] = M->pid.a1 * M->pid.cur_err[3] + M->pid.a2 * M->pid.sum_err[3] + M->pid.a3 * (M->pid.cur_err[3] - M->pid.prv_err[3]);
@@ -157,14 +168,12 @@ void EC60_MainTask(EC60_TypeDef* M) {
 	M->pid.prv_err[3] = M->pid.cur_err[3];
 	
 	/* 输出限幅 */
-	if (M->volt[0] > M->pid.saturation) M->volt[0] = M->pid.saturation;
-	if (M->volt[0] < -M->pid.saturation) M->volt[0] = -M->pid.saturation;
-	if (M->volt[1] > M->pid.saturation) M->volt[1] = M->pid.saturation;
-	if (M->volt[1] < -M->pid.saturation) M->volt[1] = -M->pid.saturation;
-	if (M->volt[2] > M->pid.saturation) M->volt[2] = M->pid.saturation;
-	if (M->volt[2] < -M->pid.saturation) M->volt[2] = -M->pid.saturation;
-	if (M->volt[3] > M->pid.saturation) M->volt[3] = M->pid.saturation;
-	if (M->volt[3] < -M->pid.saturation) M->volt[3] = -M->pid.saturation;
+	for (i = 0; i < 4; i ++) {
+
+		/* 积分限幅 */
+		if (M->volt[i] > M->pid.saturation) M->volt[i] = M->pid.saturation;
+		if (M->volt[i] < -M->pid.saturation) M->volt[i] = -M->pid.saturation;
+	}
 	
 	EC60_SendCmd(M, M->volt[0], M->volt[1], M->volt[2], M->volt[3]);
 }
