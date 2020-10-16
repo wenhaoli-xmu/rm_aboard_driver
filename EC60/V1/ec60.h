@@ -37,6 +37,7 @@ typedef struct {
 	
 	/* 输出限幅 */
 	int16_t saturation;
+	float ki_saturation;
 	
 } PID_TypeDef;
 
@@ -72,7 +73,7 @@ typedef struct {
 	uint8_t active_channel[4];
 	
 	/* 电机的电压输入 */
-	int16_t volt[4];
+	int32_t volt[4];
 	
 } EC60_TypeDef;
 
