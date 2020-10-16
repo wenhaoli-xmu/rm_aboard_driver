@@ -62,15 +62,10 @@ static void DR16_ParseData(DR16_TypeDef* D) {
 	D->sw1 = ((D->rx_data[5] >> 4) & 0x000C) >> 2;
 	D->sw2 = (D->rx_data[5] >> 4) & 0x0003;
 	
-	if ((abs(buff[0]) < 660) && \
-      (abs(buff[1]) < 660) && \
-      (abs(buff[2]) < 660) && \
-      (abs(buff[3]) < 660)) {
-		D->ch1 = buff[0];
-		D->ch2 = buff[1];
-		D->ch3 = buff[2];
-		D->ch4 = buff[3];
-	}
+	D->ch1 = buff[0];
+	D->ch2 = buff[1];
+	D->ch3 = buff[2];
+	D->ch4 = buff[3];
 }
 
 void DR16_MappingData(DR16_TypeDef* D, float* data1, float* data2, float* data3, float* data4, float ceiling) {
