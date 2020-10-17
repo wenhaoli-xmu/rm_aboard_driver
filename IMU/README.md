@@ -91,3 +91,16 @@ void IMU_Callback(IMU_TypeDef* imu) {
     if (imu == &I) IMU_MainTask(imu);
 }
 ```
+
+---
+
+## 六、获取姿态角
+
+**样例代码**
+```c
+float yaw, pit, rol;
+
+yaw = I.yaw;
+pit = I.pit;
+rol = I.rol;
+```
