@@ -33,8 +33,15 @@ void DR16_RxUpdate(DR16_TypeDef* D, UART_HandleTypeDef* huart) {
 		HAL_UART_Receive_IT(D->dr16_uart, &D->rx_buf, 1);
 
 		/* 如果接收完成 */
-		if (D->rx_cnt >= 18) D->done = 1;
+		if (D->rx_cnt >= 18 && D->done == 0) {
+			D->done = 1;
+			DR16_Callback(D);
+		}
 	}
+}
+
+__weak void DR16_Callback(DR16_TypeDef* dr16) {
+
 }
 
 static void DR16_ParseData(DR16_TypeDef* D) {
