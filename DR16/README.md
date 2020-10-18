@@ -58,14 +58,51 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart) {
 ## 四、移植MainTask函数
 
 `void DR16_MainTask(DR16_TypeDef* D);`
-- 此函数放在主函数的while(1)中不断运行即可
-- 也可以放在DR16_RxUpdate之后，更推荐放在放在DR16_RxUpdate之后
+- 此函数放在主函数的while(1)中不断运行即可，方法一要求系统任务量较小，对遥控器实时性要求不高
+- 也可以放在DR16回调函数`DR16_Callback`中运行，方法二适合系统任务量大，对遥控器实时性要求高的场景
 
 **样例代码**
 ```c
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart) {
-    DR16_RxUpdate(&D, huart);
-    DR16_MainTask();
+/* 使用方法1 */
+while (1) {
+	DR16_MainTask(&D);
+}
+
+/* 使用方法2 */
+void DR16_Callback(DR16_TypeDef* dr16) {
+	if (dr16 == &D) {
+		DR16_MainTask(&D);
+		DR16_MappingData(&D, ch, ch + 1, ch + 2, ch + 3, 360.f);
+		GM6020_SetAngle(&M, ch[2], ch[3], 0.f, 0.f);
+	}
+}
+```
+
+---
+
+## 五、重载Callback函数（可选）
+
+`__weak DR16_Callback(DR16_TypeDef* dr16)`
+- 每当DR16接收到一帧的数据帧的时候，系统自动进入该回调函数
+- 进入Callback函数后，如果需要使用该帧的数据，需要先进行这一帧数据的解析(MainTask函数)
+
+**样例代码**
+```c
+/* 接收到一帧数据后自动进入Callback函数 */
+void DR16_Callback(DR16_TypeDef* dr16) {
+
+	/* 判断是不是遥控器D接收的数据 */
+	if (dr16 == &D) {
+
+		/* 对该帧数据进行解析 */
+		DR16_MainTask(&D);
+
+		/* 将遥控器数据映射成为角度 */
+		DR16_MappingData(&D, ch, ch + 1, ch + 2, ch + 3, 360.f);
+
+		/* 向电机发送角度信息 */
+		GM6020_SetAngle(&M, ch[2], ch[3], 0.f, 0.f);
+	}
 }
 ```
 
@@ -103,14 +140,3 @@ while (1) {
 ```
 
 ---
-
-## 六、获取两个按键的值的方法
-
-**样例代码**
-```c
-/* 按键1的数值 */
-int16_t key1 = D.sw1;
-
-/* 按键2的数值 */
-int16_t key2 = D.sw2;
-```
