@@ -70,7 +70,7 @@ void DR16_Callback(DR16_TypeDef* dr16) {
 		DR16_MainTask(&D);
 		DR16_MappingData(&D, ch, ch + 1, ch + 2, ch + 3, 360.f);
 
-        /* 传入ID=1和ID=2两个电机的角度 */
+		/* 传入ID=1和ID=2两个电机的角度 */
 		GM6020_SetAngle(&M, ch[2], ch[3], 0.f, 0.f);
 	}
 }
