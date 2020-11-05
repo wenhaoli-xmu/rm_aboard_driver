@@ -1,6 +1,6 @@
 # 大疆M3508电机驱动
 
-版本：V1
+版本：V2
 
 团队：哈理工RM电控组
 
@@ -36,26 +36,21 @@ M3508_SetDir(&M, -1, 1, 1, -1);
 
 ## 三、设置控制器参数
 
-`void M3508_CtrlParams(M3508_TypeDef* M, float kp, float ki, float kd, float A, float B, uint32_t sample_period, int16_t output_saturation);`
+`void M3508_CtrlParams(M3508_TypeDef* M, float kp, float ki, float kd, float A, float B, int16_t output_saturation);`
 
 - `kp ki kd` 位置式控制器三个参数
 - `A B` 变速积分的两个参数
-- `sample_period` 采样时间，一般10ms或者20ms
 - `output_saturation` 输出限幅，一般取最大值16000
 
 **样例代码**
 ```c
 /* 经典控制器参数，实测转速100转每秒之内效果优异 */
-M3508_CtrlParams(&M, 80.f, 16.f, 0.f, 3.f, 15.f, 20, 16000);
+M3508_CtrlParams(&M, 80.f, 16.f, 0.f, 3.f, 15.f, 16000);
 ```
 
 ---
 
 ## 四、移植Update函数和MainTask函数
-
-`void M3508_Update(M3508_TypeDef* M);`
-
-- 放在1ms为周期的定时器周期回调函数中HAL_TIM_PeriodElapsedCallback()中
 
 `void M3508_RxUpdate(M3508_TypeDef* M, CAN_HandleTypeDef* hcan);`
 
@@ -63,23 +58,21 @@ M3508_CtrlParams(&M, 80.f, 16.f, 0.f, 3.f, 15.f, 20, 16000);
 
 `void M3508_MainTask(M3508_TypeDef* M);`
 
-- 放在主函数中的while(1)中轮询
+- 放在freeRTOS的线程中不断运行
 
 **样例代码**
 ```c
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim) {
-    if (htim == &htim6) {
-        M3508_Update(&M);
-    }
-}
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef* hcan) {
     M3508_RxUpdate(&M, hcan);
 }
 
-int main() {
+void m3508_task(void const *argument) {
     while (1) {
         M3508_MainTask(&M);
+
+        /* 1ms 运行一次 */
+        osDelay(1);
     }
 }
 ```
