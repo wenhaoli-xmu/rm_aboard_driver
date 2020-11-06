@@ -12,7 +12,7 @@
 
 
 /* 设置GRAPH使用的UART */
-void GRAPH_Open(UART_HandleTypeDef* huart, float* p, float* i, float* d);
+void GRAPH_Open(UART_HandleTypeDef* huart, float* p, float* i, float* d, int* data);
 
 /* 发布一个数据点 */
 void GRAPH_Pub(int data);
