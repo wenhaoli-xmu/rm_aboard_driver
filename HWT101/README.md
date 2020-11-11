@@ -23,7 +23,7 @@ HWT101_Enable(&H);
 
 ---
 
-## 三、一直RxUpdate函数在it.c中
+## 三、移植RxUpdate函数在it.c中
 
 注意，it.c文件中有一个`void USARTx_IRQHandler()`函数，需要将RxUpdate函数放在其中，并且需要将原来IRQ里面的内容全部删除掉
 
