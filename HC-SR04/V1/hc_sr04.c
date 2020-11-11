@@ -14,7 +14,7 @@ SR04_TypeDef SR04_Open(TIM_HandleTypeDef* htim, uint32_t tim_channel, GPIO_TypeD
 	S.htim = htim;
 	S.channel = tim_channel;
 	S.port = trig_port;
-	S.pin = GPIO_PIN_9;
+	S.pin = trig_pin;
 	if (tim_channel == TIM_CHANNEL_1) S.active_channel = HAL_TIM_ACTIVE_CHANNEL_1;
 	else if (tim_channel == TIM_CHANNEL_2) S.active_channel = HAL_TIM_ACTIVE_CHANNEL_2;
 	else if (tim_channel == TIM_CHANNEL_3) S.active_channel = HAL_TIM_ACTIVE_CHANNEL_3;
