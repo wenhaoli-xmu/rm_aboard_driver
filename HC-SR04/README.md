@@ -69,11 +69,11 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef* htim) {
 ```c
 void sr04_task(void const *argument) {
     while (1) {
-		SR04_Maintask(&S);
+        SR04_Maintask(&S);
 
         /* 采样周期60ms，推荐值 */
-		osDelay(60);
-	}
+        osDelay(60);
+    }
 }
 ```
 
