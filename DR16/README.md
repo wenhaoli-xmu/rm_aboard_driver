@@ -1,19 +1,28 @@
 # 大疆DR16接收机驱动
 
-版本：v2.0
+**当前版本**
+v3
 
-团队：哈理工RM电控组
+**v1特性**
+- 使用中断进行逐帧接收
+- 使用定时器判断串口是否空闲
+
+**v2特性**
+- 在V1的基础上添加了Callback函数
+
+**v3特性**
+- 加入了freeRTOS
+- 取消了MainTask函数，直接在串口空闲中断中解析数据
+- 加入了DMA
 
 ---
 
 ## 一、MX配置
 
 ![img1](https://github.com/RainFromCN/rm_aboard_driver/blob/master/DR16/img1.png)
-
 ![img2](https://github.com/RainFromCN/rm_aboard_driver/blob/master/DR16/img2.png)
-
 ![img3](https://github.com/RainFromCN/rm_aboard_driver/blob/master/DR16/img3.png)
-
+![img4](https://github.com/RainFromCN/rm_aboard_driver/blob/master/DR16/img4.png)
 
 ---
 
@@ -32,83 +41,74 @@ DR16_Enable(&D);
 
 ---
 
-## 三、移植Update函数
+## 三、移植RxUpdate函数在it.c文件中
 
-`void DR16_Update(DR16_TypeDef* D);`
-- 这个函数需要放在1ms定时器中断回调函数中
-
-`void DR16_RxUpdate(DR16_TypeDef* D, UART_HandleTypeDef* huart);`
-- 这个函数需要放在UART中断回调函数中
+`void DR16_RxUpdate(DR16_TypeDef* D);`
+- 这个函数需要放在中断文件it.c中的`void USARTx_IRQHandler`函数中
 
 **使用样例**
 ```c
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim) {
-    if (htim == &htim6) {
-        DR16_Update(&D);
-    }
+#include "dr16.h"
+
+extern DR16_TypeDef D;
+
+/* 原本的USARTx_IRQHandler函数的模样 */
+void USART1_IRQHandler(void) {
+    /* USER CODE BEGIN USART1_IRQn 0 */
+
+    /* USER CODE END USART1_IRQn 0 */
+    HAL_UART_IRQHandler(&huart1);
+    /* USER CODE BEGIN USART1_IRQn 1 */
+
+    /* USER CODE END USART1_IRQn 1 */
 }
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart) {
-    DR16_RxUpdate(&D, huart);
-}
-```
-
----
-
-## 四、移植MainTask函数
-
-`void DR16_MainTask(DR16_TypeDef* D);`
-- 此函数放在主函数的while(1)中不断运行即可，方法一要求系统任务量较小，对遥控器实时性要求不高
-- 也可以放在DR16回调函数`DR16_Callback`中运行，方法二适合系统任务量大，对遥控器实时性要求高的场景
-
-**样例代码**
-```c
-/* 使用方法1 */
-while (1) {
-	DR16_MainTask(&D);
-}
-
-/* 使用方法2 */
-void DR16_Callback(DR16_TypeDef* dr16) {
-	if (dr16 == &D) {
-		DR16_MainTask(&D);
-		DR16_MappingData(&D, ch, ch + 1, ch + 2, ch + 3, 360.f);
-		GM6020_SetAngle(&M, ch[2], ch[3], 0.f, 0.f);
-	}
+/* 删改后的USARTx_IRQHandler函数的模样 */
+void USART1_IRQHandler(void) {
+	DR16_RxUpdate(&D);
 }
 ```
 
 ---
 
-## 五、重载Callback函数（可选）
+## 四、重载Callback函数（可选）
 
 `__weak DR16_Callback(DR16_TypeDef* dr16)`
 - 每当DR16接收到一帧的数据帧的时候，系统自动进入该回调函数
-- 进入Callback函数后，如果需要使用该帧的数据，需要先进行这一帧数据的解析(MainTask函数)
 
 **样例代码**
 ```c
 /* 接收到一帧数据后自动进入Callback函数 */
+
+float cmd_vel[4]; //由DR16_Callback进行更新
+float imu_vel[4]; //由IMU_Callback进行更新
+
 void DR16_Callback(DR16_TypeDef* dr16) {
-
-	/* 判断是不是遥控器D接收的数据 */
 	if (dr16 == &D) {
+		DR16_MappingData(&D, ch, ch + 1, ch + 2, ch + 3, 400);
 
-		/* 对该帧数据进行解析 */
-		DR16_MainTask(&D);
+		float forward = ch[1] - 200;
+		float rotate  = ch[2] - 200;
+		float offset  = ch[0] - 200;
 
-		/* 将遥控器数据映射成为角度 */
-		DR16_MappingData(&D, ch, ch + 1, ch + 2, ch + 3, 360.f);
+		cmd_vel[0] = forward - offset - rotate * 0.5;
+		cmd_vel[1] = forward + offset + rotate * 0.5;
+		cmd_vel[2] = forward - offset + rotate * 0.5;
+		cmd_vel[3] = forward + offset - rotate * 0.5;
 
-		/* 向电机发送角度信息 */
-		GM6020_SetAngle(&M, ch[2], ch[3], 0.f, 0.f);
+		M2006_CmdVel(&M,\
+			cmd_vel[0] + imu_vel[0],\
+			cmd_vel[1] + imu_vel[1],\
+			cmd_vel[2] + imu_vel[2],\
+			cmd_vel[3] + imu_vel[3]\
+		);
 	}
 }
 ```
 
 ---
 
-## 六、MappingData的使用方法
+## 五、MappingData的使用方法
 
 至此DR16驱动移植完毕，此外DR16还提供了MappingData的方法，来供用户获取四个遥感通道的数据
 
@@ -116,27 +116,6 @@ void DR16_Callback(DR16_TypeDef* dr16) {
 
 - `data1 ~ data4` 用于保存四个通道的传入数据
 - `ceiling` 将四个通道的数据数据映射到 [0, ceiling] 上
-
-**使用样例**
-```c
-
-float angle1, angle2, angle3, angle4;
-float angle1_smooth, angle2_smooth, angle3_smooth, angle4_smooth;
-
-while (1) {
-    /* 获取电机数据与遥控器数据 */
-	MOTOR_Maintask(&M);
-	DR16_Maintask(&D);
-	
-	/* 将遥控器获取的结果映射成0-360之间的数值 */
-	DR16_MappingData(&D, &angle1, &angle2, &angle3, &angle4, 360);
-	
-	/* 获取滤波结果 */
-	FILTER_Callback(&F);
-	
-	/* 设置电机的角度 */
-	MOTOR_SetAngle(&M, angle1_smooth, angle4_smooth, angle3_smooth);
-}
-```
+- 具体的使用方法见第四部分
 
 ---
