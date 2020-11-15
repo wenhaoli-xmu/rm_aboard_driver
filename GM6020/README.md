@@ -1,8 +1,18 @@
 # GM6020电机驱动
 
-版本：V1
+**当前版本**
+V2
 
-团队：哈理工RM电控组
+**V1特性**
+* 使用定时器作为定时采样控制
+* 建议使用5ms-10ms采样周期
+
+**V2特性**
+* 使用freeRTOS作为定时采样控制
+* 提升了CAN数据解析效率
+* 支持1ms采样周期
+* 支持变速积分算法
+* 支持不完全微分算法
 
 ---
 
@@ -10,6 +20,7 @@
 
 ![img1](https://github.com/RainFromCN/rm_aboard_driver/blob/master/GM6020/img1.png)
 ![img2](https://github.com/RainFromCN/rm_aboard_driver/blob/master/GM6020/img2.png)
+![img3](https://github.com/RainFromCN/rm_aboard_driver/blob/master/GM6020/img3.png)
 
 ---
 
@@ -18,60 +29,55 @@
 `GM6020_TypeDef GM6020_Open(CAN_HandleTypeDef* hcan, uint16_t id_group);`
 - `id_group` 可选择0x1FF和0x2FF
 
+`void GM6020_SetDir(GM6020_TypeDef* M, int16_t dir1, int16_t dir2, int16_t dir3, int16_t dir4);`
+- `dir1-dir4` 电机的转向，设置1为正传，-1为反转，0为不转
+
+`void GM6020_CtrlParams(GM6020_TypeDef* M, float kp, float ki, float kd, int16_t output_saturation);`
+- `kp, ki, kd` 传统PID参数
+- `output_saturation` 输出饱和，一般设置30000
+
+`void GM6020_ExCtrlParams(GM6020_TypeDef* M, float A, float B, float alpha);`
+- `A, B` 变速积分参数，先调B，再调A+B
+- `alpha` 不完全微分系数，这个值越大，微分器的滤波效果越强
+- 如果不想使用变速积分，那么置B为1e6，置A为0
+- 如果不想使用不完全微分器，那么置 alpha 为1
+
 **样例代码**
 ```c
-GM6020_TypeDef M;
+GM6020_TypeDef G;
 
-M = GM6020_Open(&hcan1, 0x1FF);
-GM6020_SetPID(&M, 10.f, 0.f, 0.f, 10, 30000);
+G = GM6020_Open(&hcan1, 0x1ff);
+GM6020_SetDir(&G, 1, 1, 0, 0);
 
-/* 设定四个电机的初始角度为180° */
-GM6020_SetAngle(&M, 180.f, 180.f, 180.f, 180.f);
+/* 设置PID参数 */
+GM6020_CtrlParams(&G, 10.f, 0.f, 0.f, 30000);
+
+/* 设置A,B,alpha */
+GM6020_ExCtrlParams(&G, 0.f, 1e6, 0.95);
 ```
 
 ---
 
-## 三、移植Update函数
-
-`void GM6020_Update(GM6020_TypeDef* M);`
-- 放在周期为1ms的定时器周期回调函数中
+## 三、移植RxUpdate函数
 
 `void GM6020_RxUpdate(GM6020_TypeDef* M, CAN_HandleTypeDef* hcan);`
 - 放在`HAL_CAN_RxFifo0MsgPendingCallback`中
 
 **样例代码**
 ```c
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim) {
-	if (htim == &htim6) {
-		GM6020_Update(&M);
-	}
-}
-
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
-	GM6020_RxUpdate(&M, hcan);
+	GM6020_RxUpdate(&G, hcan);
 }
 ```
 
 ---
 
-## 四、向电机发送速度指令或者位置指令
-
-`void GM6020_SendCmd(GM6020_TypeDef* M, int16_t motor1, int16_t motor2, int16_t motor3, int16_t motor4);`
-- `motor1-motor4` 的取值范围是-30000到+30000，代表输入电机的电压
-
-`void GM6020_SetAngle(GM6020_TypeDef* M, float angle1, float angle2, float angle3, float angle4);`
-- `angle1-angle4` 的取值范围是[0,360]，代表角度
+## 四、向电机发送位置指令
 
 **使用样例**
 ```c
-/* 每接收到遥控器的数据之后进入该函数 */
-void DR16_Callback(DR16_TypeDef* dr16) {
-	if (dr16 == &D) {
-		DR16_MainTask(&D);
-		DR16_MappingData(&D, ch, ch + 1, ch + 2, ch + 3, 360.f);
-
-		/* 传入ID=1和ID=2两个电机的角度 */
-		GM6020_SetAngle(&M, ch[2], ch[3], 0.f, 0.f);
-	}
-}
+G.loc_set[0] = 0;
+G.loc_set[1] = 0;
+G.loc_set[2] = 0;
+G.loc_set[3] = 0;
 ```
