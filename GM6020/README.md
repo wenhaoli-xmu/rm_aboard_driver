@@ -72,7 +72,24 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 
 ---
 
-## 四、向电机发送位置指令
+## 四、移植MainTask函数
+
+`void GM6020_MainTask(GM6020_TypeDef* M);`
+- 放在freeRTOS的进程中运行
+
+**样例代码**
+```c
+void gimbal_task(void const *argument) {
+	while (1) {
+		GM6020_MainTask(&G);
+		osDelay(1);
+	}
+}
+```
+
+---
+
+## 五、向电机发送位置指令
 
 **使用样例**
 ```c
