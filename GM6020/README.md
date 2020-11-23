@@ -50,10 +50,10 @@ G = GM6020_Open(&hcan1, 0x1ff);
 GM6020_SetDir(&G, 1, 1, 0, 0);
 
 /* 设置PID参数 */
-GM6020_CtrlParams(&G, 10.f, 0.f, 0.f, 30000);
+GM6020_CtrlParams(&G, 40.f, 0.f, 6000.f, 30000);
 
 /* 设置A,B,alpha */
-GM6020_ExCtrlParams(&G, 0.f, 1e6, 0.95);
+GM6020_ExCtrlParams(&G, 0.f, 1e6, 0.95); //采样周期为1ms的时候，建议设置alpha=0.95
 ```
 
 ---
@@ -94,7 +94,7 @@ void gimbal_task(void const *argument) {
 **使用样例**
 ```c
 G.loc_set[0] = 0;
-G.loc_set[1] = 0;
+G.loc_set[1] = 8191;
 G.loc_set[2] = 0;
 G.loc_set[3] = 0;
 ```

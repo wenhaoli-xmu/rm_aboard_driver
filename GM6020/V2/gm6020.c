@@ -99,7 +99,8 @@ void GM6020_MainTask(GM6020_TypeDef* M) {
 
 	static float ratio;
 	static float cur_err[4];
-	static int16_t errA, errB;
+	static int16_t errA, errB, errC;
+	static uint8_t arg_min;
 	static float uKd;
 	static uint8_t data_buffer[8];
 
@@ -146,13 +147,21 @@ void GM6020_MainTask(GM6020_TypeDef* M) {
 		/* 计算误差 */
 		errA = M->loc_set[i] - M->angle[i];
 		errB = M->loc_set[i] + GM6020_PPR - M->angle[i];
-		if (iabs(errA) < iabs(errB)) {
+		errC = M->loc_set[i] - GM6020_PPR - M->angle[i];
+
+		arg_min = argMin(iabs(errA), iabs(errB), iabs(errC));
+
+		if (arg_min == 0) {
 			M->pid.cur_err[i] = errA;
 			cur_err[i] = errA;
 		}
-		else {
+		else if (arg_min == 1) {
 			M->pid.cur_err[i] = errB;
 			cur_err[i] = errB;
+		}
+		else if (arg_min == 2) {
+			M->pid.cur_err[i] = errC;
+			cur_err[i] = errC;
 		}
 
 		/* 钳制积分 */
