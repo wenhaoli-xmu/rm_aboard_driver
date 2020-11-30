@@ -58,7 +58,27 @@ GM6020_ExCtrlParams(&G, 0.f, 1e6, 0.95); //采样周期为1ms的时候，建议�
 
 ---
 
-## 三、移植RxUpdate函数
+## 三、根据需要，修改RxUpdate函数
+
+```c
+if (tmp == 0x205 || tmp == 0x209)
+else if (tmp == 0x206 || tmp == 0x20A)
+else if (tmp == 0x207 || tmp == 0x20B)
+else if (tmp == 0x208)
+```
+
+倘若我们将电机的反馈数据通过电调设置为0x207和0x208，那么需要将其他的删除，以免发生冲突，删除后的RxUpdate应该如下：
+
+```c
+if (tmp == 0x207)
+else if (tmp == 0x208)
+```
+
+在上面的代码中，只保留了0x207和0x208两个回馈ID
+
+---
+
+## 四、移植RxUpdate函数
 
 `void GM6020_RxUpdate(GM6020_TypeDef* M, CAN_HandleTypeDef* hcan);`
 - 放在`HAL_CAN_RxFifo0MsgPendingCallback`中
@@ -72,7 +92,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 
 ---
 
-## 四、移植MainTask函数
+## 五、移植MainTask函数
 
 `void GM6020_MainTask(GM6020_TypeDef* M);`
 - 放在freeRTOS的进程中运行
@@ -89,7 +109,7 @@ void gimbal_task(void const *argument) {
 
 ---
 
-## 五、向电机发送位置指令
+## 六、向电机发送位置指令
 
 **使用样例**
 ```c
