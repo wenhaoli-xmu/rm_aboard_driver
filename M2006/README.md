@@ -80,7 +80,7 @@ else if (tmp == 0x202)
 
 ---
 
-## 四、移植Rxpdate函数和MainTask函数
+## 五、移植Rxpdate函数和MainTask函数
 
 `void M2006_RxUpdate(M2006_TypeDef* M, CAN_HandleTypeDef* hcan);`
 
@@ -110,7 +110,7 @@ void m2006_task(void const *argument) {
 
 ---
 
-## 五、向电机发送指令
+## 六、向电机发送指令
 
 `void M2006_SendCmd(M2006_TypeDef* M, int16_t motor1, int16_t motor2, int16_t motor3, int16_t motor4);`
 
