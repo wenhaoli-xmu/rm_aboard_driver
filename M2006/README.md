@@ -1,8 +1,15 @@
 # 大疆M2006电机驱动
 
-版本：V1
+**当前版本**V2
 
-团队：哈理工RM电控组
+**V1特性**
+* 在CAN中断进行初步的数据解析分离
+* 使用freeRTOS进行电机控制
+
+**V2特性**
+* 改善了CAN通讯的性能，减小了CAN中断的处理时间
+* 优化了不完全微分器，将拓展参数的设置分离出来
+* 解决了多电机协作时出现的宏定义冲突问题
 
 ---
 
@@ -36,21 +43,44 @@ M2006_SetDir(&M, -1, 1, 1, -1);
 
 ## 三、设置控制器参数
 
-`void M2006_CtrlParams(M2006_TypeDef* M, float kp, float ki, float kd, float A, float B, int16_t output_saturation);`
+`void M2006_CtrlParams(M2006_TypeDef* M, float kp, float ki, float kd, int16_t output_saturation);`
+`void M2006_ExCtrlParams(M2006_TypeDef* M, float A, float B, float alpha);`
 
 - `kp ki kd` 位置式控制器三个参数
 - `A B` 变速积分的两个参数
+- `alpha` 不完全微分器参数，越大越平缓
 - `output_saturation` 输出限幅，一般取最大值10000
 
 **样例代码**
 ```c
 /* 经典控制器参数，需要搭配1ms的控制采样周期 */
-M2006_CtrlParams(&M, 600.f, 60.f, 1000.f, 17.f, 3.f, 10000);
+M2006_CtrlParams(&M, 600.f, 60.f, 1000.f, 10000);
+M2006_ExCtrlParams(&M, 17.f, 3.f, 0.3);
 ```
 
 ---
 
-## 四、移植Update函数和MainTask函数
+## 四、根据需要定制RxUpdate函数
+
+```c
+if (tmp == 0x201 || tmp == 0x205)
+else if (tmp == 0x202 || tmp == 0x206)
+else if (tmp == 0x203 || tmp == 0x207)
+else if (tmp == 0x204 || tmp == 0x208)
+```
+
+倘若我们将电机的反馈数据通过电调设置为0x201和0x202，那么需要将其他的删除，以免发生冲突，删除后的RxUpdate应该如下：
+
+```c
+if (tmp == 0x201)
+else if (tmp == 0x202)
+```
+
+在上面的代码中，只保留了0x201和0x202两个回馈ID
+
+---
+
+## 四、移植Rxpdate函数和MainTask函数
 
 `void M2006_RxUpdate(M2006_TypeDef* M, CAN_HandleTypeDef* hcan);`
 
