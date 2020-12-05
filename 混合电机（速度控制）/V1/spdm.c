@@ -28,8 +28,8 @@ SPDM_TypeDef SPDM_Open(CAN_HandleTypeDef* hcan, uint16_t id_group) {
 	
 	memset(&tmp, 0, sizeof(SPDM_TypeDef));
 
-	tmp.SPDM_can = hcan;
-	tmp.SPDM_id_group = id_group;
+	tmp.motor_can = hcan;
+	tmp.motor_id_group = id_group;
 	
 	SPDM_CANFilterEnable(hcan);
 	HAL_CAN_ActivateNotification(hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
@@ -54,7 +54,7 @@ void SPDM_RxUpdate(SPDM_TypeDef* M, CAN_HandleTypeDef* hcan) {
 
 	static uint16_t tmp;
 	if (M->motor_can != hcan) return;
-	tmp = (CAN_RI0R_STID & M->SPDM_can->Instance->sFIFOMailBox[CAN_RX_FIFO0].RIR) >> CAN_TI0R_STID_Pos;
+	tmp = (CAN_RI0R_STID & M->motor_can->Instance->sFIFOMailBox[CAN_RX_FIFO0].RIR) >> CAN_TI0R_STID_Pos;
 	
 	/* 第一个电机 */
 	if (tmp == 0x201 || tmp == 0x205) {
@@ -213,9 +213,16 @@ void SPDM_CtrlParams(SPDM_TypeDef* M, float* kp, float* ki, float* kd, int16_t* 
 }
 
 void SPDM_ExCtrlParams(SPDM_TypeDef* M, float* A, float* B, float* alpha) {
-	M->pid.A[i] = A[i];
-	M->pid.B[i] = B[i];
-	M->pid.alpha[i] = alpha[i];
+
+	uint8_t i;
+
+	for (i = 0; i < 4; i ++) {
+		M->pid.A[i] = A[i];
+		M->pid.B[i] = B[i];
+		M->pid.alpha[i] = alpha[i];
+	}
+
+
 }
 
 void SPDM_CmdVel(SPDM_TypeDef* M, float vel_rps1, float vel_rps2, float vel_rps3, float vel_rps4) {

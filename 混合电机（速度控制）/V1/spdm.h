@@ -93,10 +93,10 @@ void SPDM_MainTask(SPDM_TypeDef* M);
 void SPDM_SetDir(SPDM_TypeDef* M, int16_t dir1, int16_t dir2, int16_t dir3, int16_t dir4);
 
 /* 设置PID参数和变速积分参数 */
-void SPDM_CtrlParams(SPDM_TypeDef* M, float kp, float ki, float kd, int16_t output_saturation);
+void SPDM_CtrlParams(SPDM_TypeDef* M, float* kp, float* ki, float* kd, int16_t* output_saturation);
 
 /* 设置PID控制器的变速积分参数和不完全微分参数 */
-void SPDM_ExCtrlParams(SPDM_TypeDef* M, float A, float B, float alpha);
+void SPDM_ExCtrlParams(SPDM_TypeDef* M, float* A, float* B, float* alpha);
 
 /* 使用CAN向电机发送命令 */
 void SPDM_SendCmd(SPDM_TypeDef* M, int16_t motor1, int16_t motor2, int16_t motor3, int16_t motor4);
