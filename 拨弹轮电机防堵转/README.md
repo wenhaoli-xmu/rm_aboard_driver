@@ -1,6 +1,6 @@
 # 拨弹轮防堵转逻辑
 
----c
+```c
 /* 电机防止堵转的变量定义 */
 # define STALL_VOLT             (8000) //电机电压大于此值判为堵转
 # define STALL_VEL              (5) //电机转速小于此值判为堵转
@@ -40,4 +40,4 @@ void spdm_task(void const *argument) {
 		osDelay(1);
 	}
 }
----
+```
