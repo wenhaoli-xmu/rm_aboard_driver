@@ -1,7 +1,7 @@
 # GM6020电机驱动
 
 **当前版本**
-V2
+V2.1
 
 **V1特性**
 * 使用定时器作为定时采样控制
@@ -13,6 +13,10 @@ V2
 * 支持1ms采样周期
 * 支持变速积分算法
 * 支持不完全微分算法
+
+**V2.1特性**
+* 将PID计算与CAN命令发送分作两个线程运行
+* 提升了系统的稳定性
 
 ---
 
@@ -92,17 +96,38 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 
 ---
 
-## 五、移植MainTask函数
+## 五、移植CalcPid函数和SendCmd函数
 
-`void GM6020_MainTask(GM6020_TypeDef* M);`
-- 放在freeRTOS的进程中运行
+**注意**
+- `CalcPid`函数应该放在优先级为**High**的函数中运行
+- `SendCmd`函数应该放在优先级为**RealTime**的函数中运行
+
+**函数原型**
+`void GM6020_CalcPid( GM6020_TypeDef* M );`
+- 放在freeRTOS的线程中运行
+
+`void GM6020_SendCmd(GM6020_TypeDef* M, int16_t motor1, int16_t motor2, int16_t motor3, int16_t motor4);`
+- 放在freeRTOS的线程中运行
 
 **样例代码**
 ```c
-void gimbal_task(void const *argument) {
-	while (1) {
-		GM6020_MainTask(&G);
-		osDelay(1);
+uint32_t sample_period = 1; //采样周期 1ms
+
+void gimbal_pid_calc_thread( void const * argument ) 
+{
+	while ( 1 )
+	{
+		GM6020_CalcPid( &G );
+		osDelay( sample_period );
+	}
+}
+
+void gimbal_cmd_sending_thread( void const * argument )
+{
+	while ( 1 )
+	{
+		GM6020_SendCmd( &G, G.volt[0], G.volt[1], G.volt[2], G.volt[3] );
+		osDelay( sample_period );
 	}
 }
 ```
@@ -118,3 +143,44 @@ G.loc_set[1] = 8191;
 G.loc_set[2] = 0;
 G.loc_set[3] = 0;
 ```
+
+---
+
+## 云台的速度控制附加代码
+
+**代码段**
+```c
+	M->vel[0] = M->velocity[0] / 60.f * M->dir[0];
+	M->vel[1] = M->velocity[1] / 60.f * M->dir[1];
+
+//add start
+	M->loc_set[0] += M->yaw_vel;
+	M->loc_set[1] += M->pit_vel;
+
+	for ( i = 0; i < 2; i ++ )
+	{
+		if (M->loc_set[i] < 0.f) M->loc_set[i] = M->loc_set[i] + (float)GM6020_PPR;
+		else if (M->loc_set[i] > (float)GM6020_PPR) M->loc_set[i] = M->loc_set[i] - (float)GM6020_PPR;
+	}
+
+	if (M->loc_set[1] < 900.f) M->loc_set[1] = 900.f;
+	if (M->loc_set[1] > 2000.f) M->loc_set[1] = 2000.f;
+
+	loc_set[0] = (int16_t)(M->loc_set[0]);
+	loc_set[1] = (int16_t)(M->loc_set[1]);
+
+	loc_set[0] = (loc_set[0] + GM6020_PPR) % GM6020_PPR;
+//add end
+
+	for (i = 0; i < 4; i ++) {
+
+		/* 计算误差 */
+		errA = M->loc_set[i] - M->angle[i];
+		errB = M->loc_set[i] + GM6020_PPR - M->angle[i];
+		errC = M->loc_set[i] - GM6020_PPR - M->angle[i];
+		absA = errA > 0 ? errA : -errA;
+		absB = errB > 0 ? errB : -errB;
+		absC = errC > 0 ? errC : -errC;
+```
+
+---

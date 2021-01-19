@@ -1,10 +1,10 @@
-#include <gm6020.h>
+#include <m2006.h>
 #include "stdlib.h"
 #include "string.h"
 #include "math.h"
 
 /* 开启滤波器 */
-static void GM6020_CANFilterEnable(CAN_HandleTypeDef* hcan) {
+static void M2006_CANFilterEnable(CAN_HandleTypeDef* hcan) {
 	CAN_FilterTypeDef CAN_FilterConfigStructure;
 
 	CAN_FilterConfigStructure.FilterIdHigh = 0x0000;
@@ -22,23 +22,23 @@ static void GM6020_CANFilterEnable(CAN_HandleTypeDef* hcan) {
 	HAL_CAN_ConfigFilter(hcan, &CAN_FilterConfigStructure);
 }
 
-GM6020_TypeDef GM6020_Open(CAN_HandleTypeDef* hcan, uint16_t id_group) {
+M2006_TypeDef M2006_Open(CAN_HandleTypeDef* hcan, uint16_t id_group) {
 	
-	GM6020_TypeDef tmp;
+	M2006_TypeDef tmp;
 	
-	memset(&tmp, 0, sizeof(GM6020_TypeDef));
+	memset(&tmp, 0, sizeof(M2006_TypeDef));
 
 	tmp.motor_can = hcan;
 	tmp.motor_id_group = id_group;
 	
-	GM6020_CANFilterEnable(hcan);
+	M2006_CANFilterEnable(hcan);
 	HAL_CAN_ActivateNotification(hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
 	HAL_CAN_Start(hcan);
 	
 	return tmp;
 }
 
-void GM6020_GetRxMessage(uint32_t* pL, uint32_t* pH, uint8_t aData[]) {
+void M2006_GetRxMessage(uint32_t* pL, uint32_t* pH, uint8_t aData[]) {
     aData[0] = (uint8_t)((CAN_RDL0R_DATA0 & *pL) >> CAN_RDL0R_DATA0_Pos);
     aData[1] = (uint8_t)((CAN_RDL0R_DATA1 & *pL) >> CAN_RDL0R_DATA1_Pos);
     aData[2] = (uint8_t)((CAN_RDL0R_DATA2 & *pL) >> CAN_RDL0R_DATA2_Pos);
@@ -50,14 +50,14 @@ void GM6020_GetRxMessage(uint32_t* pL, uint32_t* pH, uint8_t aData[]) {
 }
 
 /* 放在HAL_CAN_RxFifo0MsgPendingCallback中 */
-void GM6020_RxUpdate(GM6020_TypeDef* M, CAN_HandleTypeDef* hcan) {
+void M2006_RxUpdate(M2006_TypeDef* M, CAN_HandleTypeDef* hcan) {
 
 	static uint16_t tmp;
 	if (M->motor_can != hcan) return;
 	tmp = (CAN_RI0R_STID & M->motor_can->Instance->sFIFOMailBox[CAN_RX_FIFO0].RIR) >> CAN_TI0R_STID_Pos;
 	
 	/* 第一个电机 */
-	if (tmp == 0x205 || tmp == 0x209) {
+	if (tmp == 0x201 || tmp == 0x205) {
 		M->dataL_buf[0] = hcan->Instance->sFIFOMailBox[CAN_RX_FIFO0].RDLR;
 		M->dataH_buf[0] = hcan->Instance->sFIFOMailBox[CAN_RX_FIFO0].RDHR;
 		M->active_channel[0] = 1;
@@ -65,7 +65,7 @@ void GM6020_RxUpdate(GM6020_TypeDef* M, CAN_HandleTypeDef* hcan) {
 	}
 	
 	/* 第二个电机 */
-	else if (tmp == 0x206 || tmp == 0x20A) {
+	else if (tmp == 0x202 || tmp == 0x206) {
 		M->dataL_buf[1] = hcan->Instance->sFIFOMailBox[CAN_RX_FIFO0].RDLR;
 		M->dataH_buf[1] = hcan->Instance->sFIFOMailBox[CAN_RX_FIFO0].RDHR;
 		M->active_channel[1] = 1;
@@ -73,7 +73,7 @@ void GM6020_RxUpdate(GM6020_TypeDef* M, CAN_HandleTypeDef* hcan) {
 	}
 	
 	/* 第三个电机 */
-	else if (tmp == 0x207 || tmp == 0x20B) {
+	else if (tmp == 0x203 || tmp == 0x207) {
 		M->dataL_buf[2] = hcan->Instance->sFIFOMailBox[CAN_RX_FIFO0].RDLR;
 		M->dataH_buf[2] = hcan->Instance->sFIFOMailBox[CAN_RX_FIFO0].RDHR;
 		M->active_channel[2] = 1;
@@ -81,7 +81,7 @@ void GM6020_RxUpdate(GM6020_TypeDef* M, CAN_HandleTypeDef* hcan) {
 	}
 	
 	/* 第四个电机 */
-	else if (tmp == 0x208) {
+	else if (tmp == 0x204 || tmp == 0x208) {
 		M->dataL_buf[3] = hcan->Instance->sFIFOMailBox[CAN_RX_FIFO0].RDLR;
 		M->dataH_buf[3] = hcan->Instance->sFIFOMailBox[CAN_RX_FIFO0].RDHR;
 		M->active_channel[3] = 1;
@@ -89,18 +89,12 @@ void GM6020_RxUpdate(GM6020_TypeDef* M, CAN_HandleTypeDef* hcan) {
 	}
 }
 
-static int16_t iabs(int16_t a) {
-	return a > 0 ? a : -a;
-}
-
 /* 主任务 */
-void GM6020_CalcPid(GM6020_TypeDef* M) {
+void M2006_CalcPid(M2006_TypeDef* M) {
 	static float A, B;
 
 	static float ratio;
 	static float cur_err[4];
-	static int16_t errA, errB, errC;
-	static uint8_t arg_min;
 	static float uKd;
 	static uint8_t data_buffer[8];
 
@@ -108,28 +102,28 @@ void GM6020_CalcPid(GM6020_TypeDef* M) {
 
 	if (M->active_channel[0] == 1) {
 		M->active_channel[0] = 0;
-		GM6020_GetRxMessage(M->dataL_buf, M->dataH_buf, data_buffer);
+		M2006_GetRxMessage(M->dataL_buf, M->dataH_buf, data_buffer);
 		M->angle[0] = (int16_t)(data_buffer[0] << 8 | data_buffer[1]);
 		M->velocity[0] = (int16_t)(data_buffer[2] << 8 | data_buffer[3]);
 	}
 	
 	if (M->active_channel[1] == 1) {
 		M->active_channel[1] = 0;
-		GM6020_GetRxMessage(M->dataL_buf + 1, M->dataH_buf + 1, data_buffer);
+		M2006_GetRxMessage(M->dataL_buf + 1, M->dataH_buf + 1, data_buffer);
 		M->angle[1] = (int16_t)(data_buffer[0] << 8 | data_buffer[1]);
 		M->velocity[1] = (int16_t)(data_buffer[2] << 8 | data_buffer[3]);
 	}
 	
 	if (M->active_channel[2] == 1) {
 		M->active_channel[2] = 0;
-		GM6020_GetRxMessage(M->dataL_buf + 2, M->dataH_buf + 2, data_buffer);
+		M2006_GetRxMessage(M->dataL_buf + 2, M->dataH_buf + 2, data_buffer);
 		M->angle[2] = (int16_t)(data_buffer[0] << 8 | data_buffer[1]);
 		M->velocity[2] = (int16_t)(data_buffer[2] << 8 | data_buffer[3]);
 	}
 	
 	if (M->active_channel[3] == 1) {
 		M->active_channel[3] = 0;
-		GM6020_GetRxMessage(M->dataL_buf + 3, M->dataH_buf + 3, data_buffer);
+		M2006_GetRxMessage(M->dataL_buf + 3, M->dataH_buf + 3, data_buffer);
 		M->angle[3] = (int16_t)(data_buffer[0] << 8 | data_buffer[1]);
 		M->velocity[3] = (int16_t)(data_buffer[2] << 8 | data_buffer[3]);
 	}
@@ -137,32 +131,23 @@ void GM6020_CalcPid(GM6020_TypeDef* M) {
 	M->vel[0] = M->velocity[0] / 60.f * M->dir[0];
 	M->vel[1] = M->velocity[1] / 60.f * M->dir[1];
 	M->vel[2] = M->velocity[2] / 60.f * M->dir[2];
-	M->vel[3] = M->velocity[3] / 60.f *  M->dir[3];
+	M->vel[3] = M->velocity[3] / 60.f * M->dir[3];
+	
+	/* 计算误差 */
+	M->pid.cur_err[0] = M->vel_set[0] - M->vel[0];
+	M->pid.cur_err[1] = M->vel_set[1] - M->vel[1];
+	M->pid.cur_err[2] = M->vel_set[2] - M->vel[2];
+	M->pid.cur_err[3] = M->vel_set[3] - M->vel[3];
+
+	cur_err[0] = M->pid.cur_err[0];
+	cur_err[1] = M->pid.cur_err[1];
+	cur_err[2] = M->pid.cur_err[2];
+	cur_err[3] = M->pid.cur_err[3];
 	
 	for (i = 0; i < 4; i ++) {
 
 		A = M->pid.A;
 		B = M->pid.B;
-
-		/* 计算误差 */
-		errA = M->loc_set[i] - M->angle[i];
-		errB = M->loc_set[i] + GM6020_PPR - M->angle[i];
-		errC = M->loc_set[i] - GM6020_PPR - M->angle[i];
-
-		arg_min = argMin(iabs(errA), iabs(errB), iabs(errC));
-
-		if (arg_min == 0) {
-			M->pid.cur_err[i] = errA;
-			cur_err[i] = errA;
-		}
-		else if (arg_min == 1) {
-			M->pid.cur_err[i] = errB;
-			cur_err[i] = errB;
-		}
-		else if (arg_min == 2) {
-			M->pid.cur_err[i] = errC;
-			cur_err[i] = errC;
-		}
 
 		/* 钳制积分 */
 		if ((M->pid.is_sat[i] == 1 && cur_err[i] > 0) || (M->pid.is_sat[i] == -1 && cur_err[i] < 0)) ;
@@ -210,7 +195,7 @@ void GM6020_CalcPid(GM6020_TypeDef* M) {
 	}
 }
 
-void GM6020_CtrlParams(GM6020_TypeDef* M, float kp, float ki, float kd, int16_t output_saturation) {
+void M2006_CtrlParams(M2006_TypeDef* M, float kp, float ki, float kd, int16_t output_saturation) {
 	M->pid.a1 = kp;
 	M->pid.a2 = ki;
 	M->pid.a3 = kd;
@@ -220,13 +205,13 @@ void GM6020_CtrlParams(GM6020_TypeDef* M, float kp, float ki, float kd, int16_t 
 	M->pid.saturation = output_saturation;
 }
 
-void GM6020_ExCtrlParams(GM6020_TypeDef* M, float A, float B, float alpha) {
+void M2006_ExCtrlParams(M2006_TypeDef* M, float A, float B, float alpha) {
 	M->pid.A = A;
 	M->pid.B = B;
 	M->pid.alpha = alpha;
 }
 
-void GM6020_CmdVel(GM6020_TypeDef* M, float vel_rps1, float vel_rps2, float vel_rps3, float vel_rps4) {
+void M2006_CmdVel(M2006_TypeDef* M, float vel_rps1, float vel_rps2, float vel_rps3, float vel_rps4) {
 	
 	M->vel_set[0] = vel_rps1;
 	M->vel_set[1] = vel_rps2;
@@ -234,7 +219,7 @@ void GM6020_CmdVel(GM6020_TypeDef* M, float vel_rps1, float vel_rps2, float vel_
 	M->vel_set[3] = vel_rps4;
 }
 
-void GM6020_SendCmd(GM6020_TypeDef* M, int16_t motor1, int16_t motor2, int16_t motor3, int16_t motor4) {
+void M2006_SendCmd(M2006_TypeDef* M, int16_t motor1, int16_t motor2, int16_t motor3, int16_t motor4) {
 	
 	static uint32_t mailbox;
 	static uint8_t data[8];
@@ -242,7 +227,7 @@ void GM6020_SendCmd(GM6020_TypeDef* M, int16_t motor1, int16_t motor2, int16_t m
 	
 	static float ratio;
 	static int16_t maxmotor;
-	static int16_t thresh = MAX_VOLT;
+	static int16_t thresh = M2006_MAX_VOLT;
 	
 	maxmotor = abs(motor1);
 	if (abs(motor2) > maxmotor) maxmotor = abs(motor2);
@@ -280,7 +265,7 @@ void GM6020_SendCmd(GM6020_TypeDef* M, int16_t motor1, int16_t motor2, int16_t m
 	HAL_CAN_AddTxMessage(M->motor_can, &header, data, &mailbox);
 }
 
-void GM6020_SetDir(GM6020_TypeDef* M, int16_t dir1, int16_t dir2, int16_t dir3, int16_t dir4) {
+void M2006_SetDir(M2006_TypeDef* M, int16_t dir1, int16_t dir2, int16_t dir3, int16_t dir4) {
 	M->dir[0] = dir1;
 	M->dir[1] = dir2;
 	M->dir[2] = dir3;

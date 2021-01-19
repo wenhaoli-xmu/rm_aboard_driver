@@ -1,6 +1,6 @@
 # 混合电机驱动（速度控制）
 
-**当前版本**V1
+**当前版本**V2
 
 **V1特性**
 * 可以对四个电机使用各自独立的PID控制器
@@ -9,6 +9,9 @@
 * 使用freeRTOS
 * 当前最大支持四个电机为一组，使用FIFO0作为接收器
 * 四个电机必须具有同一个ID组，例如M2006和M3508都是0x200
+
+**V2特性**
+* 将PID计算和CAN命令发送独立出来，放到两个线程中去
 
 ---
 
@@ -95,27 +98,53 @@ else if (tmp == 0x201)
 
 ---
 
-# 五、移植RxUpdate函数和MainTask函数
+# 五、移植RxUpdate函数和PidCalc函数和SendCmd函数
+
+**注意**
+- 其中 `SPDM_PidCalc`函数应该放在优先等级为**High**的线程中运行
+- 而`SPDM_SendCmd`函数应该放在优先等级为**RealTime**的线程中运行
+
+**函数原型**
 
 `void SPDM_RxUpdate(SPDM_TypeDef* M, CAN_HandleTypeDef* hcan);`
 * 放在HAL_CAN_RxFifo0MsgPendingCallback()中
 
-`void SPDM_MainTask(SPDM_TypeDef* M);`
+`void SPDM_PidCalc(SPDM_TypeDef* M);`
+* 放在freeRTOS中不断运行
+
+`SPDM_SendCmd(SPDM_TypeDef* M, int16_t motor1, int16_t motor2, int16_t motor3, int16_t motor4);`
 * 放在freeRTOS中不断运行
 
 **样例代码**
 ```c
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef* hcan) {
-    SPDM_RxUpdate(&M, hcan);
+
+uint32_t sample_period = 1; //采样周期为 1ms
+
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef* hcan)
+{
+    SPDM_RxUpdate( &M, hcan );
 }
 
-void spdm_task(void const *argument) {
-    while (1) {
-        SPDM_MainTask(&M);
+// 线程的优先等级为 High
+void spdm_pid_calc_thread( void const *argument )
+{
+    while ( 1 )  
+    {
+        SPDM_MainTask( &M );
 
         /* 1ms 运行一次 */
         /* 实测上面的那套控制参数搭配1ms的控制周期，可以有相当不错的控制效果 */
-        osDelay(1);
+        osDelay( sample_period );
+    }
+}
+
+// 线程的优先等级为 RealTime
+void spdm_cmd_sending_thread( void const * argument )
+{
+    while ( 1 )
+    {
+        SPDM_SendCmd( &M, M.volt[0], M.volt[1], M.volt[2], M.volt[3] );
+        osDelay( sample_period );
     }
 }
 ```
@@ -138,9 +167,7 @@ void spdm_task(void const *argument) {
 float ch[4];
 
 void DR16_Callback(DR16_TypeDef* D) {
-    DR16_MainTask(&D);
     DR16_MappingData(&D, ch, ch+1, ch+2, ch+3, 100);
-
     SPDM_CmdVel(&M, ch[0], ch[1], ch[2], ch[3]);
 }
 ```

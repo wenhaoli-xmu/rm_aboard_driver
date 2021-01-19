@@ -91,7 +91,7 @@ M2006_TypeDef M2006_Open(CAN_HandleTypeDef* hcan, uint16_t id_group);
 void M2006_RxUpdate(M2006_TypeDef* M, CAN_HandleTypeDef* hcan);
 
 /* 主任务 */
-void M2006_MainTask(M2006_TypeDef* M);
+void M2006_CalcPid(M2006_TypeDef* M);
 
 /* 设置电机转向 */
 void M2006_SetDir(M2006_TypeDef* M, int16_t dir1, int16_t dir2, int16_t dir3, int16_t dir4);

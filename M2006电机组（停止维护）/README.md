@@ -1,6 +1,6 @@
 # 大疆M2006电机驱动
 
-**当前版本**V2
+**当前版本**V2.1
 
 **V1特性**
 * 在CAN中断进行初步的数据解析分离
@@ -10,6 +10,10 @@
 * 改善了CAN通讯的性能，减小了CAN中断的处理时间
 * 优化了不完全微分器，将拓展参数的设置分离出来
 * 解决了多电机协作时出现的宏定义冲突问题
+
+**V2.1特性**
+* 分离了Pid计算和CAN信号发送，分别在两个线程中运行
+* 提升了系统的稳定性
 
 ---
 
@@ -80,30 +84,47 @@ else if (tmp == 0x202)
 
 ---
 
-## 五、移植Rxpdate函数和MainTask函数
+## 五、移植Rxpdate函数和CalcPid函数和SendCmd函数
 
+**注意**
+* `CalcPid`函数的优先级为**High**
+* `SendCmd`函数的优先级为**RealTime**
+
+**函数原型**
 `void M2006_RxUpdate(M2006_TypeDef* M, CAN_HandleTypeDef* hcan);`
-
 - 放在HAL_CAN_RxFifo0MsgPendingCallback()中
 
-`void M2006_MainTask(M2006_TypeDef* M);`
+`void M2006_CalcPid(M2006_TypeDef* M);`
+- 放在freeRTOS的线程中不断运行
 
+`void M2006_SendCmd(M2006_TypeDef* M, int16_t motor1, int16_t motor2, int16_t motor3, int16_t motor4);`
 - 放在freeRTOS的线程中不断运行
 
 **样例代码**
 ```c
+uint32_t sample_period = 1; //采样时间1ms
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef* hcan) {
     M2006_RxUpdate(&M, hcan);
 }
 
-void m2006_task(void const *argument) {
+void m2006_pid_calc_thread( void const * argument ) 
+{
     while (1) {
-        M2006_MainTask(&M);
+        M2006_CalcPid(&M);
 
         /* 1ms 运行一次 */
         /* 实测上面的那套控制参数搭配1ms的控制周期，可以有相当不错的控制效果 */
-        osDelay(1);
+        osDelay( sample_period );
+    }
+}
+
+void m2006_cmd_sending_thread( void const * argument )
+{
+    while ( 1 )
+    {
+        M2006_SendCmd( &M, M.volt[0], M.volt[1], M.volt[2], M.volt[3] );
+        osDelay( sample_period );
     }
 }
 ```
